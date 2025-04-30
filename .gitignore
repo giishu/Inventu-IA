@@ -1,0 +1,14 @@
+# Ignorar entorno virtual
+venv/
+
+# Ignorar archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Ignorar entornos virtuales y configuraciones
+.env
+*.db
+
+# Ignorar el archivo de dependencias si no querés que se suba
+# (aunque generalmente es bueno tenerlo en el repositorio)
+# requirements.txt
