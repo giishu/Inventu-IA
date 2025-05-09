@@ -82,10 +82,18 @@ def registrar_consulta(tipo, parametros):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo_consulta TEXT,
             parametros TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            categoria TEXT DEFAULT 'general'
         )
     """)
-    cursor.execute("INSERT INTO historial_consultas (tipo_consulta, parametros) VALUES (?, ?)", 
-                   (tipo, str(parametros)))
+    
+    # Convertimos los parámetros a string si son un diccionario
+    params_str = str(parametros) if not isinstance(parametros, str) else parametros
+    
+    cursor.execute("""
+        INSERT INTO historial_consultas (tipo_consulta, parametros, categoria)
+        VALUES (?, ?, ?)
+    """, (tipo, params_str, 'ia' if tipo == 'consulta_ia' else 'general'))
+    
     conn.commit()
     conn.close()
