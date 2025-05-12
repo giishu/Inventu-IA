@@ -76,26 +76,33 @@ def ver_historial():
     
     print("\n--- ÚLTIMAS CONSULTAS ---")
     for fila in resultados:
-        tipo = fila[1]
-        params = eval(fila[2])  # Convertimos el string de parámetros a dict
+        params = eval(fila[2]) if fila[2].startswith("{") else fila[2]
         
-        if tipo == "consulta_ia":
-            print(f"\nID: {fila[0]} | Tipo: Consulta IA | Fecha: {fila[3]}")
+        if fila[1] == "consulta_ia":
+            print(f"\n[CONSULTA IA - {fila[3]}]")
             print(f"Pregunta: {params['pregunta']}")
             print(f"Respuesta: {params['respuesta']}")
         else:
-            print(f"\nID: {fila[0]} | Tipo: {tipo} | Parámetros: {params} | Fecha: {fila[3]}")
+            print(f"\n[{fila[1]} - {fila[3]}]")
+            print(f"Parámetros: {params}")
 
+# En la función consultar_ia()
 def consultar_ia():
-    pregunta = input("\nIngresá tu pregunta para la IA: ")
-    respuesta, _ = consultar_bot(pregunta)
-    print("\nRespuesta de la IA:", respuesta)
+    historial = []  # Podrías cargar el historial desde la base de datos
     
-    # Registrar la consulta en el historial
-    registrar_consulta("consulta_ia", {
-        "pregunta": pregunta,
-        "respuesta": respuesta
-    })
+    while True:
+        pregunta = input("\nIngresá tu pregunta para la IA (o 'salir' para volver): ")
+        if pregunta.lower() == 'salir':
+            break
+            
+        respuesta, historial = consultar_bot(pregunta, historial)
+        print("\nRespuesta de la IA:", respuesta)
+        
+        registrar_consulta("consulta_ia", {
+            "pregunta": pregunta,
+            "respuesta": respuesta,
+            "modelo": "deepseek-chat"
+        })
 
 # Loop principal
 while True:

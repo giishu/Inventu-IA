@@ -18,4 +18,4 @@ def detectar_cambios_bruscos(df, columna, umbral=1000):
 
 def filtrar_por_valor(df, columna, valor):
     """Filtra filas donde una columna tiene un valor específico (ej: corriente=0)."""
-    return df[df[columna] == valor].index.tolist()
+    return df[df[columna] == valor]

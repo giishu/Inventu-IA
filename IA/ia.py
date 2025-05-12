@@ -1,37 +1,66 @@
-from transformers import pipeline
+import requests
 import warnings
+from typing import Tuple
 
-# Silenciamos advertencias irrelevantes
-warnings.filterwarnings("ignore", message="Truncation was not explicitly activated")
-warnings.filterwarnings("ignore", message="Setting `pad_token_id`")
+# Configuración de la API (deberías mover esto a un archivo de configuración)
+API_KEY = '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'  # Obtén una en: https://openrouter.ai/keys
+API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
-def consultar_bot(mensaje_usuario):
-    # Configuración optimizada para claridad
-    chatbot = pipeline(
-        "text-generation",
-        model="gpt2-medium",
-        device="cpu",
-        truncation=True  # Activamos explícitamente
-    )
+def consultar_bot(mensaje_usuario: str, historial: list = None) -> Tuple[str, list]:
+    """
+    Consulta a la API de DeepSeek Chat
     
-    # Prompt mejor estructurado
-    prompt = f"""Provide a clear, concise answer to this technical question in simple terms.
-Question: {mensaje_usuario}
-Answer in 1-2 sentences:"""  # Limitamos la extensión
+    Args:
+        mensaje_usuario: Pregunta del usuario
+        historial: Lista de mensajes previos (opcional)
     
-    respuesta = chatbot(
-        prompt,
-        max_length=100,  # Más corto para mayor claridad
-        num_return_sequences=1,
-        temperature=0.4,  # Balance entre técnico y claro
-        top_p=0.85,
-        do_sample=True,
-        repetition_penalty=2.5,  # Más fuerte contra repeticiones
-        no_repeat_ngram_size=3,
-        pad_token_id=50256  # Para evitar el warning
-    )
+    Returns:
+        Tuple con (respuesta, historial_actualizado)
+    """
+    if historial is None:
+        historial = []
     
-    # Procesamiento limpio de la respuesta
-    full_text = respuesta[0]["generated_text"]
-    clean_answer = full_text.split("Answer in 1-2 sentences:")[1].strip().split('\n')[0]
-    return clean_answer, []
+    headers = {
+        'Authorization': f'Bearer {API_KEY}',
+        'HTTP-Referer': 'https://tu-sitio.com',  # Opcional pero recomendado
+        'X-Title': 'trAIn'         # Opcional
+    }
+    
+    # Construimos el historial de mensajes
+    messages = [
+        {
+            "role": "system",
+            "content": "Eres un experto en locomotoras diésel. Responde de manera técnica pero clara en español."
+        }
+    ]
+    
+    # Agregamos historial previo
+    messages.extend(historial)
+    
+    # Agregamos la nueva pregunta
+    messages.append({"role": "user", "content": mensaje_usuario})
+    
+    data = {
+        "model": "deepseek/deepseek-chat",  # Modelo a usar
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
+    
+    try:
+        response = requests.post(API_URL, json=data, headers=headers, timeout=30)
+        response.raise_for_status()  # Lanza error si hay problemas
+        
+        respuesta_api = response.json()
+        respuesta = respuesta_api['choices'][0]['message']['content']
+        
+        # Actualizamos el historial con la respuesta
+        historial_actualizado = messages + [
+            {"role": "assistant", "content": respuesta}
+        ]
+        
+        return respuesta, historial_actualizado
+    
+    except requests.exceptions.RequestException as e:
+        warnings.warn(f"Error al consultar la API: {str(e)}")
+        return "Lo siento, no pude conectarme al servicio de IA. Intenta nuevamente más tarde.", historial

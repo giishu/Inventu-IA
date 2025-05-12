@@ -1,12 +1,14 @@
 import pandas as pd
 import sqlite3
+import os  
 
 def guardar_estadisticas(df, nombre_tabla):
     """Guarda estadísticas básicas y valores únicos por columna en memoria.db"""
+    os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect("data/memoria.db")
     cursor = conn.cursor()
 
-    # Crear tabla para estadísticas si no existe
+    # Crear tabla para estadísticas si no existe respecto del historial
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS estadisticas (
             tabla TEXT,
@@ -53,6 +55,7 @@ def guardar_estadisticas(df, nombre_tabla):
 
 
 def cargar_csv(ruta):
+    """Carga un CSV con delimitador ';' o ',' y limpia los datos."""
     df = pd.read_csv(ruta, sep=';', decimal=',', quotechar='"', on_bad_lines='skip', engine='python')
     print(f"Filas cargadas: {len(df)}")
 
@@ -61,7 +64,12 @@ def cargar_csv(ruta):
     df.columns = df.columns.str.strip().str.lower()  # Ej: 'Presión' -> 'presion'
     df = df.dropna(how='all')  # Elimina filas vacías
 
-    total_lineas = sum(1 for _ in open(ruta, encoding="utf-8"))
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            total_lineas = sum(1 for _ in f)
+    except Exception:
+        total_lineas = len(df)  # fallback
+        
     print(f"Total líneas en archivo: {total_lineas}")
     print(f"Filas cargadas sin errores: {len(df)}")
     print(f"Líneas ignoradas por error: {total_lineas - len(df)}")
@@ -73,27 +81,30 @@ def guardar_en_db(df, nombre_tabla):
     conn = sqlite3.connect('data/memoria.db')
     df.to_sql(nombre_tabla, conn, if_exists='replace', index=False)
     conn.close()
+    print(f"📊 Tabla '{nombre_tabla}' guardada en la base de datos.")
 
 def registrar_consulta(tipo, parametros):
     conn = sqlite3.connect("data/memoria.db")
     cursor = conn.cursor()
+    
+    # Verificar si la tabla existe y tiene la estructura correcta
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS historial_consultas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo_consulta TEXT,
             parametros TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            categoria TEXT DEFAULT 'general'
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
     
-    # Convertimos los parámetros a string si son un diccionario
+    # Convertir parámetros a string si son un diccionario
     params_str = str(parametros) if not isinstance(parametros, str) else parametros
     
     cursor.execute("""
-        INSERT INTO historial_consultas (tipo_consulta, parametros, categoria)
-        VALUES (?, ?, ?)
-    """, (tipo, params_str, 'ia' if tipo == 'consulta_ia' else 'general'))
+        INSERT INTO historial_consultas (tipo_consulta, parametros)
+        VALUES (?, ?)
+    """, (tipo, params_str))
     
     conn.commit()
     conn.close()
+    print("📌 Consulta registrada.")
