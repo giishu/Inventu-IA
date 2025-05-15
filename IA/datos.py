@@ -1,110 +1,94 @@
 import pandas as pd
 import sqlite3
-import os  
+import os
+from datetime import datetime
 
-def guardar_estadisticas(df, nombre_tabla):
-    """Guarda estadísticas básicas y valores únicos por columna en memoria.db"""
+def limpiar_timestamp(serie):
+    """Estandariza el formato de tiempo para todos los módulos"""
+    return pd.to_datetime(
+        serie.astype(str).str.extract(r'(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2})')[0],
+        format='%d.%m.%Y %H:%M:%S', 
+        errors='coerce'
+    )
+
+def inicializar_db():
+    """Crea la estructura de la BD si no existe"""
     os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect("data/memoria.db")
-    cursor = conn.cursor()
-
-    # Crear tabla para estadísticas si no existe respecto del historial
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS estadisticas (
-            tabla TEXT,
-            columna TEXT,
-            promedio REAL,
-            minimo REAL,
-            maximo REAL,
-            desviacion REAL
-        )
+    
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS estadisticas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tabla TEXT NOT NULL,
+        columna TEXT NOT NULL,
+        promedio REAL,
+        minimo REAL,
+        maximo REAL,
+        desviacion REAL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
     """)
-
-    # Crear tabla para valores únicos
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS valores_unicos (
-            tabla TEXT,
-            columna TEXT,
-            valor TEXT
-        )
+    
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS valores_unicos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tabla TEXT NOT NULL,
+        columna TEXT NOT NULL,
+        valor TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
     """)
-
-    for col in df.columns:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            promedio = df[col].mean()
-            minimo = df[col].min()
-            maximo = df[col].max()
-            desviacion = df[col].std()
-
-            cursor.execute("""
-                INSERT INTO estadisticas (tabla, columna, promedio, minimo, maximo, desviacion)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (nombre_tabla, col, promedio, minimo, maximo, desviacion))
-
-        # Guardar valores únicos (máximo 20 por columna para no saturar)
-        valores = df[col].dropna().unique()[:20]
-        for v in valores:
-            cursor.execute("""
-                INSERT INTO valores_unicos (tabla, columna, valor)
-                VALUES (?, ?, ?)
-            """, (nombre_tabla, col, str(v)))
-
+    
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS historial_consultas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo_consulta TEXT NOT NULL,
+        parametros TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    
     conn.commit()
     conn.close()
-    print(f"Estadísticas guardadas para tabla '{nombre_tabla}'")
-
 
 def cargar_csv(ruta):
-    """Carga un CSV con delimitador ';' o ',' y limpia los datos."""
-    df = pd.read_csv(ruta, sep=';', decimal=',', quotechar='"', on_bad_lines='skip', engine='python')
-    print(f"Filas cargadas: {len(df)}")
-
-
-    # Limpieza básica
-    df.columns = df.columns.str.strip().str.lower()  # Ej: 'Presión' -> 'presion'
-    df = df.dropna(how='all')  # Elimina filas vacías
-
     try:
-        with open(ruta, encoding="utf-8") as f:
-            total_lineas = sum(1 for _ in f)
-    except Exception:
-        total_lineas = len(df)  # fallback
+        # Cargar el CSV
+        df = pd.read_csv(ruta, sep=';', quotechar='"', engine='python', on_bad_lines='skip')
         
-    print(f"Total líneas en archivo: {total_lineas}")
-    print(f"Filas cargadas sin errores: {len(df)}")
-    print(f"Líneas ignoradas por error: {total_lineas - len(df)}")
+        # Normalizar nombres de columnas
+        df.columns = df.columns.str.strip().str.lower()
+        
+        # Renombrar columnas clave para consistencia
+        column_mapping = {
+            'timestring': 'timestring',
+            '"timestring"': 'timestring',
+            'time_string': 'timestring',
+            # Agrega otros mapeos si es necesario
+        }
+        
+        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+        
+        return df
     
-    return df
+    except Exception as e:
+        print(f"Error al cargar CSV: {str(e)}")
 
 def guardar_en_db(df, nombre_tabla):
-    """Guarda el DataFrame en SQLite para historial."""
-    conn = sqlite3.connect('data/memoria.db')
-    df.to_sql(nombre_tabla, conn, if_exists='replace', index=False)
-    conn.close()
-    print(f"📊 Tabla '{nombre_tabla}' guardada en la base de datos.")
+    """Guarda en SQLite con actualización incremental"""
+    with sqlite3.connect("data/memoria.db") as conn:
+        df.to_sql(
+            nombre_tabla, 
+            conn, 
+            if_exists='append',
+            index=False,
+            method='multi'
+        )
 
 def registrar_consulta(tipo, parametros):
-    conn = sqlite3.connect("data/memoria.db")
-    cursor = conn.cursor()
-    
-    # Verificar si la tabla existe y tiene la estructura correcta
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS historial_consultas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo_consulta TEXT,
-            parametros TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Convertir parámetros a string si son un diccionario
-    params_str = str(parametros) if not isinstance(parametros, str) else parametros
-    
-    cursor.execute("""
-        INSERT INTO historial_consultas (tipo_consulta, parametros)
-        VALUES (?, ?)
-    """, (tipo, params_str))
-    
-    conn.commit()
-    conn.close()
-    print("📌 Consulta registrada.")
+    """Registra consultas en historial"""
+    with sqlite3.connect("data/memoria.db") as conn:
+        conn.execute("""
+            INSERT INTO historial_consultas (tipo_consulta, parametros)
+            VALUES (?, ?)
+        """, (tipo, str(parametros)))
