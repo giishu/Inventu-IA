@@ -2,14 +2,22 @@
 import google.generativeai as genai
 import pandas as pd
 from IA.datos import cargar_csv
+from IA.datos import seleccionar_archivo
 
 genai.configure(api_key='AIzaSyA2PipvauvVPmrGQz-Hn7nhu_VcWHypeEo')
 
-def consultar_bot(pregunta: str, ruta_csv="data/LOG ENTRADAS Y SALIDAS FISICAS0.csv"):
+def consultar_bot(pregunta: str, df=None, ruta_csv=None):
     """Consulta técnica a Gemini con filtrado por relevancia"""
-    df = cargar_csv(ruta_csv)
-    if df.empty:
-        return "Error: No hay datos para analizar"
+    # Cargar datos si no se pasó un DataFrame directamente
+    if df is None:
+        if ruta_csv is None:
+            ruta_csv = seleccionar_archivo()
+            if not ruta_csv:
+                return "Error: No se seleccionó ningún archivo"
+        
+        df = cargar_csv(ruta_csv)
+        if df.empty:
+            return "Error: No hay datos para analizar"
     
     datos = df.tail(100).to_string()
     

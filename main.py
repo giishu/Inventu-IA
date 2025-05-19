@@ -1,17 +1,66 @@
-from IA.datos import cargar_csv, registrar_consulta
+from IA.datos import cargar_csv, seleccionar_archivo, registrar_consulta
 from IA.analisis import detectar_cambios_bruscos
 from IA.ia import consultar_bot
 import pandas as pd
 import sqlite3
+import tkinter as tk
+from tkinter import filedialog
+import time
+import os
 
-# Cargar datos iniciales
-try:
-    df = cargar_csv("data/LOG ENTRADAS Y SALIDAS FISICAS0.csv")
-    if df.empty:
-        raise ValueError("El DataFrame está vacío después de cargar el CSV")
-except Exception as e:
-    print(f"Error al cargar datos: {str(e)}")
-    df = pd.DataFrame()
+def seleccionar_archivo_manual():
+    """
+    Función unificada para seleccionar archivos
+    Retorna: (ruta_archivo1, ruta_archivo2)
+    """
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    
+    # Configurar directorio inicial si existe
+    initial_dir = "data" if os.path.exists("data") else None
+    
+    try:
+        archivos = filedialog.askopenfilenames(
+            title="Seleccione 1 o 2 archivos CSV (mantenga CTRL para seleccionar dos)",
+            filetypes=[("Archivos CSV", "*.csv")],
+            initialdir=initial_dir
+        )
+        
+        if not archivos:
+            print("\n⚠️ No se seleccionaron archivos. Usando archivo por defecto.")
+            default = "data/LOG ENTRADAS Y SALIDAS FISICAS0.csv" if initial_dir else "LOG ENTRADAS Y SALIDAS FISICAS0.csv"
+            return default, None
+        
+        return (archivos[0], archivos[1] if len(archivos) > 1 else None)
+        
+    except Exception as e:
+        print(f"Error al seleccionar archivos: {str(e)}")
+        return None, None
+    finally:
+        root.destroy()
+
+def menu_carga():
+    print("\n--- CARGAR DATOS DE LOCOMOTORAS ---")
+    print("Opciones de carga:")
+    print("1. Cargar archivo(s) manualmente")
+    print("2. Usar archivo por defecto")
+    print("3. Salir")
+    
+    opcion = input("Seleccione (1-3): ").strip()
+    
+    if opcion == "1":
+        ruta1, ruta2 = seleccionar_archivo_manual()
+        df = cargar_csv(ruta1, ruta2)  # <-- Llamar directo a cargar_csv con ambas rutas
+    elif opcion == "2":
+         df = cargar_csv("data/LOG ENTRADAS Y SALIDAS FISICAS0.csv")
+    elif opcion == "3":
+        exit()
+    else:
+        print("Opción inválida. Usando archivo por defecto.")
+        df = cargar_csv("data/LOG ENTRADAS Y SALIDAS FISICAS0.csv")
+    
+    return df
 
 def mostrar_menu():
     print("\n--- MENÚ DE CONSULTAS ---")
@@ -131,18 +180,22 @@ def consultar_ia():
     except Exception as e:
         print(f"Error: {str(e)}")
 
-# Main loop
 def main():
+    # Paso 1: Cargar datos
+    df = menu_carga()  # Esta función ahora retorna el DataFrame
+    
     if df.empty:
         print("¡Advertencia! No se cargaron datos correctamente")
+        return  # Salir si no hay datos
     
+    # Paso 2: Menú principal
     while True:
         try:
             mostrar_menu()
             opcion = input("Opción (1-6): ").strip()
             
             if opcion == "1":
-                consultar_ia()
+                consultar_ia(df)  # Pasar df como argumento
             elif opcion == "2":
                 ver_primeros_n(df)
             elif opcion == "3":
@@ -150,7 +203,7 @@ def main():
             elif opcion == "4":
                 detectar_cambios(df)
             elif opcion == "5":
-                ver_historial()
+                ver_historial()  # Esta no necesita df
             elif opcion == "6":
                 print("Saliendo...")
                 break

@@ -60,28 +60,32 @@ def inicializar_db():
     conn.commit()
     conn.close()
 
-def cargar_csv(ruta):
+def cargar_csv(ruta1, ruta2=None):
+    """
+    Carga y concatena dos archivos CSV manteniendo el orden temporal
+    Retorna: DataFrame combinado
+    """
     try:
-        # Cargar el CSV
-        df = pd.read_csv(ruta, sep=';', quotechar='"', engine='python', on_bad_lines='skip')
+        # Cargar primer archivo
+        df1 = pd.read_csv(ruta1, parse_dates=True, dayfirst=True, on_bad_lines='warn')
         
-        # Normalizar nombres de columnas
-        df.columns = df.columns.str.strip().str.lower()
+        if ruta2:
+            # Cargar segundo archivo si existe
+            df2 = pd.read_csv(ruta2, parse_dates=True, dayfirst=True, on_bad_lines='warn')
+            
+            # Concatenar verificando columnas compatibles
+            if set(df1.columns) == set(df2.columns):
+                df_combinado = pd.concat([df1, df2], ignore_index=True)
+                print(f"\n✅ Archivos combinados correctamente: {len(df1)} + {len(df2)} = {len(df_combinado)} registros")
+                return df_combinado
+            else:
+                print("\n⚠️ Las columnas no coinciden. Usando solo el primer archivo.")
+                return df1
+        return df1
         
-        # Renombrar columnas clave para consistencia
-        column_mapping = {
-            'timestring': 'timestring',
-            '"timestring"': 'timestring',
-            'time_string': 'timestring',
-            # Agrega otros mapeos si es necesario
-        }
-        
-        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-        
-        return df
-    
     except Exception as e:
-        print(f"Error al cargar CSV: {str(e)}")
+        print(f"\n❌ Error al cargar archivos: {str(e)}")
+        return pd.DataFrame()
 
 def guardar_en_db(df, nombre_tabla):
     """Guarda en SQLite con actualización incremental"""
