@@ -35,15 +35,3 @@ def detectar_cambios_bruscos(df, columna, umbral=1000):
         print(f"Error en detectar_cambios_bruscos: {str(e)}")
         return pd.DataFrame()
 
-def analizar_tendencia(df, columna, ventana=30):
-    """Analiza desgaste progresivo (media móvil)"""
-    if columna not in df.columns:
-        raise ValueError(f"Columna {columna} no existe")
-    
-    df['tendencia'] = (
-        df[columna]
-        .astype(float)
-        .rolling(ventana)
-        .mean()
-    )
-    return df[['"timestring"', columna, 'tendencia']].dropna()

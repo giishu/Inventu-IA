@@ -1,5 +1,5 @@
-from IA.datos import cargar_csv, registrar_consulta, limpiar_timestamp
-from IA.analisis import detectar_cambios_bruscos, analizar_tendencia
+from IA.datos import cargar_csv, registrar_consulta
+from IA.analisis import detectar_cambios_bruscos
 from IA.ia import consultar_bot
 import pandas as pd
 import sqlite3
@@ -15,13 +15,12 @@ except Exception as e:
 
 def mostrar_menu():
     print("\n--- MENÚ DE CONSULTAS ---")
-    print("1. Ver primeros N datos")
-    print("2. Filtrar por intervalo de tiempo")
-    print("3. Detectar cambios bruscos")
-    print("4. Analizar tendencia de desgaste")
-    print("5. Consultar IA")
-    print("6. Ver historial")
-    print("7. Salir")
+    print("1. Consultar IA")
+    print("2. Ver primeros N datos")
+    print("3. Filtrar por intervalo de tiempo")
+    print("4. Detectar cambios bruscos")
+    print("5. Ver historial")
+    print("6. Salir")
 
 def ver_primeros_n(df):
     try:
@@ -48,8 +47,8 @@ def filtrar_por_intervalo(df):
         inicio = input("\nIngresá fecha de inicio (ej: 04.12.2024 08:56:26): ").strip()
         fin = input("Ingresá fecha de fin (ej: 04.12.2024 08:56:27): ").strip()
 
-        # Limpiar y convertir tiempos
-        df[time_col] = limpiar_timestamp(df[time_col])
+        # Convertir la columna de tiempo con formato explícito
+        df[time_col] = pd.to_datetime(df[time_col], format="%d.%m.%Y %H:%M:%S", errors='coerce')
         df = df.dropna(subset=[time_col])
 
         inicio_dt = pd.to_datetime(inicio, format="%d.%m.%Y %H:%M:%S")
@@ -63,7 +62,8 @@ def filtrar_por_intervalo(df):
             print(f"Rango disponible: {df[time_col].min()} a {df[time_col].max()}")
         else:
             print(f"\nRegistros encontrados: {len(resultado)}")
-            print(resultado[[time_col, 'VarName', 'VarValue']].to_string(index=False))
+            # Mostrar todas las columnas excepto posiblemente índices
+            print(resultado.to_string(index=False))
 
         registrar_consulta("intervalo_tiempo", {"inicio": inicio, "fin": fin})
     except Exception as e:
@@ -106,22 +106,6 @@ def detectar_cambios(df):
     except Exception as e:
         print(f"\nError en detectar_cambios: {str(e)}")
 
-def analizar_tendencia_menu(df):
-    try:
-        print("\nColumnas numéricas disponibles:")
-        numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
-        print(numeric_cols)
-        
-        columna = input("Columna a analizar: ").strip('"')
-        ventana = int(input("Ventana (ej: 30): "))
-        
-        resultado = analizar_tendencia(df, f'"{columna}"', ventana)
-        print(resultado[[f'"{columna}"', 'tendencia']].tail(10).to_string(index=False))
-        
-        registrar_consulta("tendencia", {"columna": columna, "ventana": ventana})
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-
 def ver_historial():
     try:
         conn = sqlite3.connect("data/memoria.db")
@@ -155,21 +139,19 @@ def main():
     while True:
         try:
             mostrar_menu()
-            opcion = input("Opción (1-7): ").strip()
+            opcion = input("Opción (1-6): ").strip()
             
             if opcion == "1":
-                ver_primeros_n(df)
-            elif opcion == "2":
-                filtrar_por_intervalo(df)
-            elif opcion == "3":
-                detectar_cambios(df)
-            elif opcion == "4":
-                analizar_tendencia_menu(df)
-            elif opcion == "5":
                 consultar_ia()
-            elif opcion == "6":
+            elif opcion == "2":
+                ver_primeros_n(df)
+            elif opcion == "3":
+                filtrar_por_intervalo(df)
+            elif opcion == "4":
+                detectar_cambios(df)
+            elif opcion == "5":
                 ver_historial()
-            elif opcion == "7":
+            elif opcion == "6":
                 print("Saliendo...")
                 break
             else:

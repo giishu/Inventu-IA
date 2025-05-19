@@ -1,15 +1,24 @@
 import pandas as pd
 import sqlite3
 import os
+import tkinter as tk
+from tkinter import filedialog
 from datetime import datetime
 
-def limpiar_timestamp(serie):
-    """Estandariza el formato de tiempo para todos los módulos"""
-    return pd.to_datetime(
-        serie.astype(str).str.extract(r'(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2})')[0],
-        format='%d.%m.%Y %H:%M:%S', 
-        errors='coerce'
+import tkinter as tk
+from tkinter import filedialog
+
+def seleccionar_archivo():
+    """Permite al usuario seleccionar un archivo CSV mediante diálogo"""
+    root = tk.Tk()
+    root.withdraw()  # Oculta la ventana principal
+    
+    archivo = filedialog.askopenfilename(
+        title="Seleccione el archivo CSV",
+        filetypes=[("Archivos CSV", "*.csv"), ("Todos los archivos", "*.*")]
     )
+    
+    return archivo if archivo else None
 
 def inicializar_db():
     """Crea la estructura de la BD si no existe"""
