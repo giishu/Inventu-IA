@@ -61,31 +61,29 @@ def inicializar_db():
     conn.close()
 
 def cargar_csv(ruta1, ruta2=None):
-    """
-    Carga y concatena dos archivos CSV manteniendo el orden temporal
-    Retorna: DataFrame combinado
-    """
     try:
-        # Cargar primer archivo
-        df1 = pd.read_csv(ruta1, parse_dates=True, dayfirst=True, on_bad_lines='warn')
+        # Prueba leer con coma primero
+        try:
+            df1 = pd.read_csv(ruta1, dayfirst=True, on_bad_lines='skip', sep=';')
+        except:
+            # Si falla, lee con punto y coma
+            df1 = pd.read_csv(ruta1, sep=';', dayfirst=True, on_bad_lines='skip')
         
         if ruta2:
-            # Cargar segundo archivo si existe
-            df2 = pd.read_csv(ruta2, parse_dates=True, dayfirst=True, on_bad_lines='warn')
+            try:
+                df2 = pd.read_csv(ruta2, dayfirst=True, on_bad_lines='skip')
+            except:
+                df2 = pd.read_csv(ruta2, sep=';', dayfirst=True, on_bad_lines='skip')
+            df = pd.concat([df1, df2], ignore_index=True)
+        else:
+            df = df1
             
-            # Concatenar verificando columnas compatibles
-            if set(df1.columns) == set(df2.columns):
-                df_combinado = pd.concat([df1, df2], ignore_index=True)
-                print(f"\n✅ Archivos combinados correctamente: {len(df1)} + {len(df2)} = {len(df_combinado)} registros")
-                return df_combinado
-            else:
-                print("\n⚠️ Las columnas no coinciden. Usando solo el primer archivo.")
-                return df1
-        return df1
-        
+        return df
     except Exception as e:
-        print(f"\n❌ Error al cargar archivos: {str(e)}")
+        print(f"Error al cargar CSV: {e}")
         return pd.DataFrame()
+
+
 
 def guardar_en_db(df, nombre_tabla):
     """Guarda en SQLite con actualización incremental"""

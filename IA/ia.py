@@ -37,3 +37,7 @@ def consultar_bot(pregunta: str, df=None, ruta_csv=None):
         return response.text
     except Exception as e:
         return f"Error en Gemini: {str(e)}"
+    
+# la cucaracha la cucaracha ya no puede caminar xq le falta xq no tiene ganas de estar en este país en este momento alguien q me lleve ya a una playa del caribe
+# donde mi preocupación es tomar sol o en todo caso a Italia donde como  pizza hasta q me agarre un aneurisma no se es el segundo día de frio y ya NO SOPORTO 
+# POSTA BASTA FRIO ME ESTÁS HACIENDO PORONGUILLA
