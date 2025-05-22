@@ -64,7 +64,7 @@ def cargar_csv(ruta1, ruta2=None):
     try:
         # Prueba leer con coma primero
         try:
-            df1 = pd.read_csv(ruta1, dayfirst=True, on_bad_lines='skip', sep=';')
+            df1 = pd.read_csv(ruta1, dayfirst=True, on_bad_lines='skip', sep=';', encoding='utf-8')
         except:
             # Si falla, lee con punto y coma
             df1 = pd.read_csv(ruta1, sep=';', dayfirst=True, on_bad_lines='skip')
