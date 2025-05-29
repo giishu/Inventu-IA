@@ -6,6 +6,7 @@ import sqlite3
 import tkinter as tk
 from tkinter import filedialog
 import time
+from IA.ia import bot
 import os
 
 def seleccionar_archivo_manual():
@@ -30,23 +31,37 @@ def seleccionar_archivo_manual():
     finally:
         root.destroy()
 
-def menu_carga():
+def menu_carga() -> pd.DataFrame:
     print("\n--- CARGAR DATOS DE LOCOMOTORAS ---")
     print("Opciones de carga:")
     print("1. Cargar archivo(s) manualmente")
     print("2. Usar archivo por defecto")
     print("3. Salir")
+
     opcion = input("Seleccione (1-3): ").strip()
+    
     if opcion == "1":
         ruta1, ruta2 = seleccionar_archivo_manual()
+        if not ruta1:
+            print("⚠️ No se seleccionó archivo. Usando archivo por defecto.")
+            ruta1 = "data/LOG ENTRADAS Y SALIDAS FISICAS0.csv"
         df = cargar_csv(ruta1, ruta2)
     elif opcion == "2":
-        df = cargar_csv("data/LOG ENTRADAS Y SALIDAS FISICAS0.csv")
+        ruta1 = "data/LOG ENTRADAS Y SALIDAS FISICAS0.csv"
+        df = cargar_csv(ruta1)
     elif opcion == "3":
+        print("👋 Saliendo del programa.")
         exit()
     else:
-        print("Opción inválida. Usando archivo por defecto.")
-        df = cargar_csv("data/LOG ENTRADAS Y SALIDAS FISICAS0.csv")
+        print("⚠️ Opción inválida. Usando archivo por defecto.")
+        ruta1 = "data/LOG ENTRADAS Y SALIDAS FISICAS0.csv"
+        df = cargar_csv(ruta1)
+
+    if df.empty:
+        print("🔴 No se cargaron datos nuevos (¿archivo duplicado?).")
+    else:
+        print(f"✅ Datos cargados: {len(df)} registros nuevos.")
+
     return df
 
 def mostrar_menu():
@@ -173,15 +188,14 @@ def ver_historial():
     finally:
         conn.close()
 
-def consultar_ia(df):
-    try:
-        pregunta = input("\nIngresa tu pregunta técnica: ")
-        respuesta = consultar_bot(pregunta)
-        print("\n🔧 Respuesta:")
-        print(respuesta)
-        registrar_consulta("consulta_ia", {"pregunta": pregunta, "respuesta": respuesta[:500]})
-    except Exception as e:
-        print(f"Error: {str(e)}")
+def consultar_ia(df, bot):
+    pregunta = input("\n📤 Ingresá tu pregunta para la IA (ej. '¿Cuál es el promedio de temperatura?'):\n> ")
+    usar_codigo = input("¿Querés que la IA genere y ejecute código? (s/n): ").lower().strip() == "s"
+    if usar_codigo:
+         respuesta = bot.analisis_con_codigo_sin_ver_df(pregunta, df)
+    else:
+          respuesta = consultar_bot(pregunta, df)
+    print("\n🧠 Respuesta IA:\n", respuesta)
 
 def main():
     df = menu_carga()
@@ -198,7 +212,7 @@ def main():
             mostrar_menu()
             opcion = input("Opción (1-6): ").strip()
             if opcion == "1":
-                consultar_ia(df)
+                consultar_ia(df, bot)
             elif opcion == "2":
                 ver_primeros_n(df)
             elif opcion == "3":

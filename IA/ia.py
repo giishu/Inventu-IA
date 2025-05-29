@@ -1,6 +1,8 @@
-# ia.py 'AIzaSyA2PipvauvVPmrGQz-Hn7nhu_VcWHypeEo'
+# llave = 'AIzaSyA2PipvauvVPmrGQz-Hn7nhu_VcWHypeEo'
 import google.generativeai as genai
 import pandas as pd
+import io
+import contextlib
 from IA.datos import cargar_csv, seleccionar_archivo
 from typing import Optional
 import random
@@ -47,7 +49,6 @@ class LocomotoraBot:
     def _analisis_tecnico(self, pregunta: str, df: pd.DataFrame) -> str:
         """Análisis especializado con datos"""
         try:
-            # Prepara contexto adaptativo
             contexto = "Eres un ingeniero senior de locomotoras diésel. " + \
                      "Combina conocimiento técnico con explicaciones claras.\n\n"
             
@@ -56,22 +57,26 @@ class LocomotoraBot:
             elif "temperatura" in pregunta:
                 contexto += "Foco en termodinámica (rango óptimo: 65-90°C)"
             
-            datos_relevantes = df.tail(50).to_string()  # Muestra reducida
+            datos_relevantes = df.tail(50).to_string()
             
             prompt = f"""
-            {contexto}
-            
+            Eres un ingeniero especializado en locomotoras diésel. Analiza estos datos:
+
+            **Variables Clave**:
+            - Presión aceite: Rango normal (10000-12000)
+            - RPM: Rango normal (8000-9000)
+            - Temperaturas (IMT): Rango normal (-30 a 50)
+
             **Datos Recientes**:
-            {datos_relevantes}
-            
-            **Consulta del Usuario**:
-            "{pregunta}"
-            
+            {df.tail(20).to_string()}
+
+            **Pregunta**: "{pregunta}"
+
             **Formato de Respuesta**:
-            1. 🧐 Interpretación (máx. 2 oraciones)
-            2. ⚠️ Riesgo (1-5) + Causas posibles
-            3. 🛠️ Acciones recomendadas (lista concisa)
-            4. 💡 Consejo práctico (opcional)
+            1. 📌 Hallazgo principal
+            2. 🔍 Variable crítica (si aplica)
+            3. 🚨 Nivel de riesgo (1-5)
+            4. 🛠️ Acción recomendada
             """
             
             response = self.model.generate_content(prompt)
@@ -83,7 +88,7 @@ class LocomotoraBot:
     def _formatear_respuesta(self, respuesta: str) -> str:
         """Da formato humano a la respuesta técnica"""
         lineas = respuesta.split('\n')
-        if len(lineas) > 3:  # Si es respuesta estructurada
+        if len(lineas) > 2:  # Se ajustó el chequeo porque ya no hay tip
             return "\n".join([
                 f"🔧 **Análisis Técnico** 🔧",
                 f"{lineas[0]}", 
@@ -92,17 +97,68 @@ class LocomotoraBot:
                 f"{lineas[1]}",
                 "",
                 "🛠 **Acciones Recomendadas**:",
-                f"{lineas[2]}",
-                "",
-                "💡 **Tip Práctico**:",
-                f"{random.choice(['Revisar manual página 78', 'Verificar sellos hermeticos', 'Lubricar componentes móviles'])}"
+                f"{lineas[2]}"
             ])
         return respuesta
+    
+    def analisis_con_codigo_sin_ver_df(self, pregunta: str, df: pd.DataFrame) -> str:
+        """La IA genera código basándose solo en la pregunta. Luego lo ejecuta localmente sobre el df."""
+        try:
+            columnas = df.columns.tolist()
+
+            # Paso 1: Generar el código
+            prompt_codigo = f"""
+            Eres un experto en análisis de datos con pandas.
+
+            El DataFrame se llama `df` y tiene las siguientes columnas: {columnas}.
+
+            - `VarName` contiene el nombre de la variable (por ejemplo, 'RPM - 7KF00', 'PRESION ACEITE COMPRESOR - 7KF00', etc.)
+            - `VarValue` contiene el valor medido (número).
+            - `TimeString` contiene la fecha y hora de la medición.
+            - Cada fila representa una única medición de una variable en un instante de tiempo.
+
+            Usá pandas para responder la siguiente pregunta. Si es necesario, filtrá las filas que coincidan con palabras clave dentro de la columna 'VarName'.
+
+            Pregunta del usuario:
+            \"{pregunta}\"
+
+            Genera solamente el código Python necesario para responder a esa pregunta. Sin explicaciones. Sin comentarios.
+            """
+
+            response = self.model.generate_content(prompt_codigo)
+            codigo = response.text.strip().strip("```python").strip("```")
+
+            # Paso 2: Ejecutar el código
+            local_vars = {"df": df.copy()}
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                exec(codigo, {}, local_vars)
+            resultado = buffer.getvalue().strip()
+
+            # Paso 3: Explicar el resultado
+            prompt_explicacion = f"""
+            Este fue el resultado de ejecutar código Python sobre un DataFrame en pandas:
+
+            Código:
+            {codigo}
+
+            Resultado:
+            {resultado}
+
+            Explica al usuario qué significa este resultado, como si no supiera programar.
+            """
+
+            explicacion = self.model.generate_content(prompt_explicacion).text.strip()
+            return f"📊 Código generado:\n```python\n{codigo}\n```\n\n📈 Resultado:\n{resultado}\n\n🧠 Explicación:\n{explicacion}"
+
+        except Exception as e:
+            return f"❌ Error ejecutando el análisis: {str(e)}"
+
+
+bot=LocomotoraBot()
 
 # Interfaz mejorada
 def consultar_bot(pregunta: str, df: Optional[pd.DataFrame] = None, ruta_csv: Optional[str] = None) -> str:
-    bot = LocomotoraBot()
-    
     if df is None and ruta_csv:
         df = cargar_csv(ruta_csv)
     
