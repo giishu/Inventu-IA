@@ -1,4 +1,4 @@
-from IA.datos import cargar_csv, seleccionar_archivo, registrar_consulta
+from IA.datos import cargar_csv, seleccionar_archivo, registrar_consulta  
 from IA.analisis import detectar_cambios_porcentuales
 from IA.ia import consultar_bot
 import pandas as pd
@@ -30,6 +30,7 @@ def seleccionar_archivo_manual():
         return None, None
     finally:
         root.destroy()
+
 
 def menu_carga() -> pd.DataFrame:
     print("\n--- CARGAR DATOS DE LOCOMOTORAS ---")
@@ -70,8 +71,8 @@ def mostrar_menu():
     print("2. Ver primeros N datos")
     print("3. Filtrar por intervalo de tiempo")
     print("4. Detectar cambios bruscos")
-    print("5. Ver historial")
-    print("6. Salir")
+    print("5. Ver historial") 
+    print("7. Salir")
 
 def ver_primeros_n(df):
     try:

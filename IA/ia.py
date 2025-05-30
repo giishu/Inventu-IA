@@ -122,7 +122,7 @@ class LocomotoraBot:
             Pregunta del usuario:
             \"{pregunta}\"
 
-            Genera solamente el código Python necesario para responder a esa pregunta. Sin explicaciones. Sin comentarios.
+            Genera solamente el código Python necesario para responder a esa pregunta. Sin explicaciones. Sin comentarios. Asegurate de que el resultado se imprima con `print(...)` al final.
             """
 
             response = self.model.generate_content(prompt_codigo)
